@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#06060c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ChromaType — multicolour typing</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    --vvh:100dvh; height:var(--vvh);
+    display:flex;flex-direction:column;
+    background:
+      radial-gradient(900px 620px at 18% -12%, #241546 0%, transparent 62%),
+      radial-gradient(900px 620px at 92% 0%, #0b2b3a 0%, transparent 58%),
+      #06060c;
+    color:#e9e9f6;
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    overflow:hidden;
+    padding-bottom:env(safe-area-inset-bottom);
+    -webkit-user-select:none;user-select:none;
+  }
+  header{display:flex;align-items:center;gap:10px;padding:12px 16px 4px;flex:0 0 auto}
+  .brand{font-weight:800;font-size:15px;letter-spacing:.3px}
+  .brand b{background:linear-gradient(90deg,#ff4d6d,#ffb703,#3ddc97,#4cc9f0,#b388ff);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .stat{margin-left:auto;font-size:11px;color:#8b8ba7;font-variant-numeric:tabular-nums}
+
+  #stage{flex:1 1 auto;overflow:auto;padding:2px 16px 16px;position:relative;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  #sheet{position:relative;min-height:100%}
+  #paper{
+    font-size:var(--fs,34px); line-height:1.55; font-weight:800; letter-spacing:.4px;
+    white-space:pre-wrap; overflow-wrap:anywhere;
+    padding:4px 2px 48px; min-height:100%;
+    transition:font-size .15s ease;
+  }
+  #paper span{transition:color .12s linear}
+  #paper span.pop{animation:pop .28s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes pop{from{opacity:.25;transform:translateY(3px) scale(.82)}to{opacity:1;transform:none}}
+  .caret{display:inline-block;width:2.5px;height:1.02em;background:#fff;
+    vertical-align:-.16em;border-radius:2px;margin:0 .5px;
+    box-shadow:0 0 9px #fff,0 0 22px rgba(255,255,255,.6);
+    animation:blink 1.05s steps(1,end) infinite}
+  @keyframes blink{0%,48%{opacity:1}49%,100%{opacity:0}}
+  #sink{position:absolute;inset:0;width:100%;height:100%;opacity:0;border:0;outline:0;resize:none;
+    background:transparent;font-size:16px;padding:4px 2px;margin:0;color:transparent;
+    caret-color:transparent;overflow:hidden}
+  #placeholder{position:absolute;top:10px;left:2px;color:#4a4a68;
+    font-size:17px;font-weight:600;pointer-events:none}
+
+  #preview{font-size:20px;font-weight:800;letter-spacing:1px;
+    padding:8px 12px;border-radius:10px;background:#0c0c1a;border:1px solid #1b1b2c;
+    margin:0 12px 8px;display:flex;align-items:center;gap:10px;
+    color:#8b8ba7;min-height:40px}
+  #preview .pvLabel{font-size:10px;letter-spacing:1.5px;color:#5a5a7a;text-transform:uppercase}
+  #preview .pvText{font-size:22px;color:#fff;font-weight:800}
+
+  #dock{flex:0 0 auto;display:flex;flex-direction:column;gap:8px;
+    padding:10px 12px 12px;
+    background:linear-gradient(180deg,rgba(6,6,12,.25),rgba(6,6,12,.96) 34%);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-top:1px solid #1b1b2c}
+  .row{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;align-items:center}
+  .row::-webkit-scrollbar{display:none}
+
+  .chip{flex:0 0 auto;padding:7px 12px;border-radius:999px;border:1px solid #23233a;
+    background:#111122;color:#9a9ab8;font-size:12px;font-weight:700;
+    white-space:nowrap;cursor:pointer}
+  .chip.on{color:#07070f;border-color:transparent;
+    background:linear-gradient(90deg,#4cc9f0,#b388ff);
+    box-shadow:0 0 18px rgba(120,140,255,.45)}
+  .chip.uni.on{background:linear-gradient(90deg,#1d9bf0,#ff4d6d);box-shadow:0 0 18px rgba(29,155,240,.45)}
+
+  .sw{flex:0 0 auto;width:27px;height:27px;border-radius:50%;
+    border:2px solid transparent;cursor:pointer;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);transition:transform .12s ease}
+  .sw.on{border-color:#fff;transform:scale(1.14)}
+  .sw.auto{background:conic-gradient(#ff4d6d,#ffb703,#3ddc97,#4cc9f0,#b388ff,#ff4d6d);
+    display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#000}
+
+  .btn{flex:0 0 auto;padding:9px 13px;border-radius:11px;border:1px solid #23233a;
+    background:#12122a;color:#cfcfe6;font-size:12px;font-weight:700;cursor:pointer;
+    white-space:nowrap;transition:transform .08s ease,border-color .12s ease}
+  .btn:active{transform:translateY(1px)}
+  .btn.on{border-color:#4cc9f0;color:#4cc9f0;box-shadow:0 0 14px rgba(76,201,240,.3)}
+  .btn.danger{color:#ff7a90;border-color:#3a1f2a}
+  .btn.accent{border-color:#1d9bf0;color:#7ad0ff}
+
+  #kb{display:none;flex:0 0 auto;padding:7px 6px 9px;background:#0b0b16;border-top:1px solid #1b1b2c}
+  #kb.on{display:block}
+  .krow{display:flex;gap:5px;justify-content:center;margin-bottom:5px}
+  .krow:last-child{margin-bottom:0}
+  .key{flex:1 1 0;min-width:0;height:44px;border-radius:11px;
+    border:1px solid #22223a;background:#15152b;color:#e9e9f6;
+    font-size:16px;font-weight:700;font-family:inherit;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;padding:0;transition:background .08s ease,transform .08s ease}
+  .key:active{background:#25254d;transform:translateY(1px)}
+  .key.on{background:linear-gradient(180deg,#4cc9f0,#b388ff);color:#08080f;border-color:transparent}
+  .key.wide{flex:1.9 1 0;font-size:13px}
+  .key.space{flex:5.5 1 0;font-size:12px;letter-spacing:2px;color:#8b8ba7}
+  .key.fn{font-size:13px;color:#9a9ab8}
+  .hint{font-size:10px;color:#6b6b8a;padding:0 4px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Chroma<b>Type</b></div>
+  <div class="stat" id="stat">0 glyphs</div>
+</header>
+
+<main id="stage">
+  <div id="sheet">
+    <div id="paper"></div>
+    <div id="placeholder">Tap here &amp; start typing…</div>
+    <textarea id="sink" autocomplete="off" autocorrect="on"
+              autocapitalize="sentences" spellcheck="false" aria-label="typing input"></textarea>
+  </div>
+</main>
+
+<div id="preview">
+  <span class="pvLabel">Preview</span>
+  <span class="pvText" id="pvText">HELLO</span>
+  <span class="hint" id="pvHint">— what will appear in WhatsApp</span>
+</div>
+
+<div id="dock">
+  <div class="row" id="modeRow"></div>
+  <div class="row" id="chipRow"></div>
+  <div class="row" id="swatchRow"></div>
+  <div class="row" id="actionRow">
+    <button class="btn" id="btnKb">⌨ Keys</button>
+    <button class="btn" id="btnGlow">✨ Glow</button>
+    <button class="btn" id="btnRecolor">🎨 Repaint</button>
+    <button class="btn accent" id="btnCopy">⧉ Copy</button>
+    <button class="btn accent" id="btnShare" style="display:none">📤 Share</button>
+    <button class="btn danger" id="btnClear">✕ Clear</button>
+  </div>
+</div>
+
+<div id="kb"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ══════════════════════════════════════════════════════════
+   0.  HELPERS
+   ══════════════════════════════════════════════════════════ */
+const $ = (sel, root = document) => root.querySelector(sel);
+const sink     = $('#sink');
+const paper    = $('#paper');
+const stage    = $('#stage');
+const kbEl     = $('#kb');
+const statEl   = $('#stat');
+const holderEl = $('#placeholder');
+const pvText   = $('#pvText');
+const pvHint   = $('#pvHint');
+
+const seg = (typeof Intl !== 'undefined' && Intl.Segmenter)
+  ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+function segment(text){
+  if (!text) return [];
+  if (seg) return Array.from(seg.segment(text), s => s.segment);
+  return Array.from(text);
+}
+function hash32(n){
+  n = n | 0;
+  n = (n ^ 61) ^ (n >>> 16);
+  n = n + (n << 3);
+  n = n ^ (n >>> 4);
+  n = Math.imul(n, 0x27d4eb2d);
+  n = n ^ (n >>> 15);
+  return n >>> 0;
+}
+const cp = n => String.fromCodePoint(n);
+const ch = n => String.fromCharCode(n);
+const cpOf = s => (s ? s.codePointAt(0) : 0);
+/* Two adjacent emoji-plane chars merge (flags etc.) unless a space separates them. */
+const needsSep = (a, b) => a >= 0x1F000 && b >= 0x1F000;
+
+/* ══════════════════════════════════════════════════════════
+   1.  CSS COLOUR ENGINES (visual preview only)
+   ══════════════════════════════════════════════════════════ */
+const MODES = {
+  rainbow:  { label:'🌈 Rainbow',  fn:(i,t)=> `hsl(${(i*14)%360} 92% 62%)` },
+  gradient: { label:'🌅 Gradient', fn:(i,t)=> `hsl(${(i/Math.max(1,t-1))*320} 92% 62%)` },
+  confetti: { label:'🎊 Confetti', fn:(i)  => `hsl(${hash32(i)%360} 88% 64%)` },
+  neon:     { label:'⚡ Neon',     fn:(i)  => `hsl(${[186,300,52,140][i%4]} 100% 63%)` },
+  fire:     { label:'🔥 Fire',     fn:(i)  => `hsl(${hash32(i)%40} 100% ${54+(hash32(i*7)%14)}%)` },
+  ice:      { label:'❄️ Ice',      fn:(i)  => `hsl(${186+(hash32(i)%64)} 92% ${62+(hash32(i*3)%14)}%)` },
+  mono:     { label:'⬜ Mono',     fn:()   => '#f4f4ff' }
+};
+const SWATCHES = [
+  { n:'Auto',   v:null }, { n:'Red',    v:'#ff4d6d' },
+  { n:'Orange', v:'#ff8c42' }, { n:'Gold', v:'#ffd166' },
+  { n:'Lime',   v:'#8ce99a' }, { n:'Mint', v:'#3ddc97' },
+  { n:'Cyan',   v:'#4cc9f0' }, { n:'Blue', v:'#5b8cff' },
+  { n:'Violet', v:'#b388ff' }, { n:'Pink', v:'#ff7ad9' },
+  { n:'White',  v:'#f4f4ff' }, { n:'Slate',v:'#5a5a7a' }
+];
+
+/* ══════════════════════════════════════════════════════════
+   2.  UNICODE STYLE ENGINES  (survive inside WhatsApp)
+   ══════════════════════════════════════════════════════════ */
+
+/* Four coloured alphabets (all full A–Z) */
+const BLUE  = { mapUpper:i => cp(0x1F1E6 + i), mapLower:i => cp(0x1F1E6 + i) };
+const RED   = { mapUpper:i => cp(0x1F170 + i), mapLower:i => cp(0x1F170 + i) };
+const DARK  = { mapUpper:i => cp(0x1F150 + i), mapLower:i => cp(0x1F150 + i) };
+const WHITE = { mapUpper:i => cp(0x1F130 + i), mapLower:i => cp(0x1F130 + i) };
+
+const STYLE_DEFS = {
+  /* ── true coloured alphabets ── */
+  blue:  { name:'🔵 Blue',        ...BLUE },
+  red:   { name:'🔴 Red',         ...RED },
+  dark:  { name:'⚫ Dark circle', ...DARK },
+  white: { name:'⬜ White box',   ...WHITE },
+
+  /* ── composite engines (position-based) ── */
+  altBR:   { name:'🔀 Blue / Red',        mix:['blue','red'] },
+  altAll:  { name:'🎛 All 4 alternating', mix:['blue','red','dark','white'] },
+  gradBR:  { name:'🌅 Blue→Red bands',    gradient:['blue','red'] },
+  gradFull:{ name:'🌈 Full gradient',     gradient:['blue','dark','red','white'] },
+  gradPulse:{name:'⚡ Blue→Red→Blue',     gradient:['blue','dark','red','dark','blue'] },
+
+  /* ── math / styled alphabets (monochrome but distinct) ── */
+  fullwidth: { name:'Ａ Fullwidth',
+    mapUpper:i=>ch(0xFF21+i), mapLower:i=>ch(0xFF41+i), mapNum:i=>ch(0xFF10+i) },
+  bold: { name:'𝐀 Bold',
+    mapUpper:i=>cp(0x1D400+i), mapLower:i=>cp(0x1D41A+i), mapNum:i=>cp(0x1D7CE+i) },
+  italic: { name:'𝐴 Italic',
+    mapUpper:i=>cp(0x1D434+i),
+    mapLower:i=> (i===7?'\u210E':cp(0x1D44E+i)) },
+  script: { name:'𝒜 Script',
+    mapUpper:i=>({1:'ℬ',4:'ℰ',5:'ℱ',7:'ℋ',8:'ℐ',11:'ℒ',12:'ℳ',17:'ℛ'}[i])||cp(0x1D49C+i),
+    mapLower:i=>({4:'ℯ',6:'ℊ',14:'ℴ'}[i])||cp(0x1D4B6+i) },
+  fraktur: { name:'𝔄 Fraktur',
+    mapUpper:i=>({2:'ℭ',7:'ℌ',8:'ℑ',17:'ℜ',25:'ℨ'}[i])||cp(0x1D504+i),
+    mapLower:i=>cp(0x1D51E+i) },
+  mono: { name:'𝙰 Mono',
+    mapUpper:i=>cp(0x1D670+i), mapLower:i=>cp(0x1D68A+i), mapNum:i=>cp(0x1D7F6+i) },
+  circled: { name:'Ⓐ Circled',
+    mapUpper:i=>ch(0x24B6+i), mapLower:i=>ch(0x24D0+i),
+    mapNum:i=> i===0 ? ch(0x24EA) : ch(0x2460+i-1) },
+  smallcaps: { name:'ꜱᴍᴀʟʟ',
+    mapUpper:i=>'ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘǫʀꜱᴛᴜᴠᴡxʏᴢ'[i],
+    mapLower:i=>'ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘǫʀꜱᴛᴜᴠᴡxʏᴢ'[i] }
+};
+
+/** Convert one grapheme using the chosen engine (recurses for mix/gradient). */
+function styledChar(g, styleKey, index, total){
+  const def = STYLE_DEFS[styleKey];
+  if (!def || !g) return { ch: g, styled: false };
+
+  if (def.mix){
+    const sub = def.mix[index % def.mix.length];
+    return styledChar(g, sub, index, total);
+  }
+  if (def.gradient){
+    const pos  = total <= 1 ? 0 : index / (total - 1);
+    let slot = Math.floor(pos * def.gradient.length);
+    if (slot >= def.gradient.length) slot = def.gradient.length - 1;
+    return styledChar(g, def.gradient[slot], index, total);
+  }
+
+  if (g.length !== 1) return { ch: g, styled: false };
+  const c = g.charCodeAt(0);
+  let mapped = null;
+  if (c >= 65 && c <= 90  && def.mapUpper) mapped = def.mapUpper(c - 65);
+  else if (c >= 97 && c <= 122){
+    if (def.mapLower) mapped = def.mapLower(c - 97);
+    else if (def.mapUpper) mapped = def.mapUpper(c - 97);
+  }
+  else if (c >= 48 && c <= 57 && def.mapNum) mapped = def.mapNum(c - 48);
+
+  if (mapped && mapped !== g) return { ch: mapped, styled: true };
+  return { ch: g, styled: false };
+}
+
+/** Full plaintext output for the Copy / Share / Preview path. */
+function getOutputText(){
+  if (state.outputMode !== 'unicode') return tokens.map(t => t.g).join('');
+  const total = tokens.length;
+  let out = '';
+  let prevCp = 0;
+  for (let i = 0; i < total; i++){
+    const r = styledChar(tokens[i].g, state.uniStyle, i, total);
+    const cur = cpOf(r.ch);
+    if (prevCp && cur && needsSep(prevCp, cur)) out += ' ';
+    out += r.ch;
+    prevCp = cur;
+  }
+  return out;
+}
+
+/* ══════════════════════════════════════════════════════════
+   3.  STATE
+   ══════════════════════════════════════════════════════════ */
+const LS_KEY = 'chromatype.v4';
+const state = {
+  outputMode : 'css',
+  cssMode    : 'rainbow',
+  uniStyle   : 'blue',
+  ink        : null,
+  glow       : true,
+  kb         : true,
+  size       : 34,
+  layer      : 'abc',
+  shift      : false
+};
+let tokens = [];
+let pendingPop = null;
+let rafId = 0;
+
+/* ══════════════════════════════════════════════════════════
+   4.  PERSISTENCE
+   ══════════════════════════════════════════════════════════ */
+function save(){
+  try { localStorage.setItem(LS_KEY, JSON.stringify({ state, tokens })); } catch(_){}
+}
+function load(){
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw){
+      const o = JSON.parse(raw);
+      if (o.state)  Object.assign(state, o.state);
+      if (Array.isArray(o.tokens)) tokens = o.tokens;
+    }
+  } catch(_){ tokens = []; }
+  sink.value = tokens.map(t => t.g).join('');
+}
+
+/* ══════════════════════════════════════════════════════════
+   5.  TEXTAREA → TOKENS DIFF
+   ══════════════════════════════════════════════════════════ */
+function syncFromSink(){
+  const next = segment(sink.value);
+  const prev = tokens.map(t => t.g);
+  let p = 0;
+  while (p < prev.length && p < next.length && prev[p] === next[p]) p++;
+  let s = 0;
+  while (s < prev.length - p && s < next.length - p &&
+         prev[prev.length - 1 - s] === next[next.length - 1 - s]) s++;
+  const inserted = next.slice(p, next.length - s);
+  const fresh = inserted.map(g => ({ g, c: state.ink }));
+  tokens = [...tokens.slice(0, p), ...fresh, ...tokens.slice(prev.length - s)];
+  if (fresh.length) pendingPop = [p, p + fresh.length];
+  render(); updatePreview(); save();
+}
+
+/* ══════════════════════════════════════════════════════════
+   6.  RENDER
+   ══════════════════════════════════════════════════════════ */
+function caretIndex(){
+  if (document.activeElement !== sink) return tokens.length;
+  const pos = sink.selectionStart ?? tokens.length;
+  let acc = 0, best = 0;
+  for (let i = 0; i < tokens.length; i++){
+    const nxt = acc + tokens[i].g.length;
+    if (pos >= nxt){ acc = nxt; best = i + 1; } else break;
+  }
+  return best;
+}
+const makeCaret = () => { const c = document.createElement('i'); c.className='caret'; return c; };
+
+function render(){
+  const total = tokens.length;
+  const ci = caretIndex();
+  const frag = document.createDocumentFragment();
+  const isUni = state.outputMode === 'unicode';
+
+  let prevCp = 0;
+
+  for (let i = 0; i <= total; i++){
+    if (i === ci) frag.appendChild(makeCaret());
+    if (i >= total) continue;
+
+    const t = tokens[i];
+    let displayG = t.g;
+    let isStyled = false;
+    let curCp = 0;
+
+    if (isUni){
+      const r = styledChar(t.g, state.uniStyle, i, total);
+      displayG = r.ch;
+      isStyled = r.styled;
+      curCp = cpOf(displayG);
+      if (prevCp && curCp && needsSep(prevCp, curCp)){
+        frag.appendChild(document.createTextNode(' '));
+      }
+    }
+
+    const span = document.createElement('span');
+    span.textContent = displayG;
+    if (!isUni){
+      span.style.color = t.c || MODES[state.cssMode].fn(i, total);
+      if (state.glow){
+        span.style.textShadow = '0 0 1px currentColor, 0 0 15px currentColor';
+      }
+    }
+    if (pendingPop && i >= pendingPop[0] && i < pendingPop[1]) span.classList.add('pop');
+    frag.appendChild(span);
+
+    if (isUni) prevCp = curCp;
+  }
+
+  paper.replaceChildren(frag);
+  pendingPop = null;
+  holderEl.style.display = total ? 'none' : 'block';
+  statEl.textContent = total + (total === 1 ? ' glyph' : ' glyphs');
+  scrollCaretIntoView();
+}
+function scheduleRender(){
+  if (rafId) return;
+  rafId = requestAnimationFrame(() => { rafId = 0; render(); updatePreview(); });
+}
+function scrollCaretIntoView(){
+  if (document.activeElement !== sink) return;
+  const c = paper.querySelector('.caret');
+  if (!c) return;
+  const r = c.getBoundingClientRect();
+  const s = stage.getBoundingClientRect();
+  if (r.bottom > s.bottom - 30)  stage.scrollTop += r.bottom - s.bottom + 80;
+  else if (r.top < s.top + 30)   stage.scrollTop -= s.top - r.top + 80;
+}
+
+function updatePreview(){
+  if (state.outputMode !== 'unicode'){ pvText.textContent = 'Visual mode'; pvHint.textContent = '— colours won\'t travel'; return; }
+  const sample = tokens.length ? tokens.slice(0, 8) : segment('HELLO');
+  const total = sample.length;
+  let out = '';
+  let prevCp = 0;
+  for (let i = 0; i < total; i++){
+    const r = styledChar(sample[i].g, state.uniStyle, i, total);
+    const cur = cpOf(r.ch);
+    if (prevCp && cur && needsSep(prevCp, cur)) out += ' ';
+    out += r.ch;
+    prevCp = cur;
+  }
+  pvText.textContent = out;
+  pvHint.textContent = '— this is what WhatsApp receives';
+}
+
+/* ══════════════════════════════════════════════════════════
+   7.  INPUT MUTATION
+   ══════════════════════════════════════════════════════════ */
+function insertText(str){
+  const s = sink.selectionStart ?? sink.value.length;
+  const e = sink.selectionEnd   ?? s;
+  sink.setRangeText(str, s, e, 'end');
+  sink.dispatchEvent(new InputEvent('input', { bubbles:true, inputType:'insertText', data:str }));
+}
+function backspace(){
+  const s = sink.selectionStart ?? 0;
+  const e = sink.selectionEnd   ?? s;
+  if (s === e){
+    if (s === 0) return;
+    const before = segment(sink.value.slice(0, s));
+    const last = before[before.length - 1] || '';
+    sink.setRangeText('', s - last.length, s, 'end');
+  } else {
+    sink.setRangeText('', s, e, 'end');
+  }
+  sink.dispatchEvent(new InputEvent('input', { bubbles:true, inputType:'deleteContentBackward' }));
+}
+
+/* ══════════════════════════════════════════════════════════
+   8.  CUSTOM KEYBOARD
+   ══════════════════════════════════════════════════════════ */
+const ROWS_ABC = [
+  ['q','w','e','r','t','y','u','i','o','p'],
+  ['a','s','d','f','g','h','j','k','l'],
+  ['⇧','z','x','c','v','b','n','m','⌫']
+];
+const ROWS_SYM = [
+  ['1','2','3','4','5','6','7','8','9','0'],
+  ['-','/',':',';','(',')','₹','$','&','@'],
+  ['#','.',',','?','!','\'','"','*','⌫']
+];
+function buildKeyboard(){
+  kbEl.replaceChildren();
+  let rows;
+  if (state.layer === 'sym')      rows = ROWS_SYM;
+  else if (state.shift)           rows = ROWS_ABC.map((r, ri) =>
+                                        ri === 2
+                                          ? ['⇧','Z','X','C','V','B','N','M','⌫']
+                                          : r.map(k => k.toUpperCase()));
+  else                            rows = ROWS_ABC;
+
+  rows.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'krow';
+    r.forEach(k => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'key'; b.textContent = k;
+      if (k === '⇧'){ b.dataset.act = 'shift'; if (state.shift) b.classList.add('on'); }
+      else if (k === '⌫') b.dataset.act = 'back';
+      else b.dataset.ch = k;
+      row.appendChild(b);
+    });
+    kbEl.appendChild(row);
+  });
+
+  const row = document.createElement('div');
+  row.className = 'krow';
+  const mk = (cls, label, data, act) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'key ' + cls; b.textContent = label;
+    if (act) b.dataset.act = act; else b.dataset.ch = data;
+    return b;
+  };
+  row.appendChild(mk('wide fn', state.layer === 'sym' ? 'ABC' : '123', null, 'layer'));
+  row.appendChild(mk('space', 'space', ' '));
+  row.appendChild(mk('wide fn', '↵', '\n'));
+  row.appendChild(mk('wide fn', '▼', null, 'hide'));
+  kbEl.appendChild(row);
+}
+kbEl.addEventListener('pointerdown', e => {
+  const b = e.target.closest('.key');
+  if (!b) return;
+  e.preventDefault();
+  const act = b.dataset.act;
+  if (act === 'shift'){ state.shift = !state.shift; buildKeyboard(); return; }
+  if (act === 'back') { backspace(); return; }
+  if (act === 'layer'){ state.layer = state.layer === 'sym' ? 'abc' : 'sym'; buildKeyboard(); return; }
+  if (act === 'hide') { state.kb = false; kbEl.classList.remove('on'); $('#btnKb').classList.remove('on'); save(); return; }
+  if (b.dataset.ch !== undefined) insertText(b.dataset.ch);
+});
+
+/* ══════════════════════════════════════════════════════════
+   9.  TOOLBAR UI
+   ══════════════════════════════════════════════════════════ */
+function buildModeRow(){
+  const box = $('#modeRow');
+  box.replaceChildren();
+  const mk = (label, key, cls='') => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn ' + cls + (state.outputMode === key ? ' on' : '');
+    b.textContent = label;
+    b.onclick = () => {
+      state.outputMode = key;
+      buildModeRow(); buildChips(); buildSwatches(); syncButtons();
+      render(); updatePreview(); save();
+    };
+    return b;
+  };
+  box.appendChild(mk('🎨 Visual', 'css'));
+  box.appendChild(mk('🔵 Unicode — works in WhatsApp', 'unicode', 'accent'));
+  const hint = document.createElement('div');
+  hint.className = 'hint';
+  hint.textContent = state.outputMode === 'unicode'
+    ? '→ styled chars travel with the text'
+    : '→ colours preview only; lost on paste';
+  box.appendChild(hint);
+}
+
+function buildChips(){
+  const box = $('#chipRow');
+  box.replaceChildren();
+  if (state.outputMode === 'css'){
+    Object.entries(MODES).forEach(([key, m]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (state.cssMode === key ? ' on' : '');
+      b.textContent = m.label;
+      b.onclick = () => {
+        state.cssMode = key;
+        tokens.forEach(t => t.c = null);
+        buildChips(); render(); save();
+      };
+      box.appendChild(b);
+    });
+  } else {
+    Object.entries(STYLE_DEFS).forEach(([key, s]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip uni' + (state.uniStyle === key ? ' on' : '');
+      b.textContent = s.name;
+      b.onclick = () => { state.uniStyle = key; buildChips(); render(); updatePreview(); save(); };
+      box.appendChild(b);
+    });
+  }
+}
+
+function buildSwatches(){
+  const box = $('#swatchRow');
+  box.replaceChildren();
+  if (state.outputMode !== 'css'){ box.style.display = 'none'; return; }
+  box.style.display = 'flex';
+  SWATCHES.forEach(s => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sw' + (s.v === null ? ' auto' : '') + (state.ink === s.v ? ' on' : '');
+    b.title = s.n;
+    if (s.v === null) b.textContent = 'A';
+    else b.style.background = s.v;
+    b.onclick = () => { state.ink = s.v; buildSwatches(); save(); };
+    box.appendChild(b);
+  });
+}
+
+const applySize = () => paper.style.setProperty('--fs', state.size + 'px');
+function syncButtons(){
+  $('#btnKb').classList.toggle('on', state.kb);
+  $('#btnGlow').classList.toggle('on', state.glow);
+  $('#btnGlow').style.display = state.outputMode === 'css' ? '' : 'none';
+  kbEl.classList.toggle('on', state.kb);
+}
+
+/* ══════════════════════════════════════════════════════════
+   10. EVENT WIRING
+   ══════════════════════════════════════════════════════════ */
+sink.addEventListener('input', syncFromSink);
+sink.addEventListener('keyup', scheduleRender);
+sink.addEventListener('click', scheduleRender);
+sink.addEventListener('focus', scheduleRender);
+sink.addEventListener('blur',  scheduleRender);
+document.addEventListener('selectionchange', () => {
+  if (document.activeElement === sink) scheduleRender();
+});
+stage.addEventListener('pointerdown', e => {
+  if (e.target.closest('#sink')) return;
+  if (document.activeElement !== sink) sink.focus({ preventScroll: true });
+});
+
+$('#btnKb').onclick      = () => { state.kb = !state.kb; syncButtons(); save(); };
+$('#btnGlow').onclick    = () => { state.glow = !state.glow; syncButtons(); render(); save(); };
+$('#btnRecolor').onclick = () => { tokens.forEach(t => t.c = null); render(); save(); };
+
+$('#btnCopy').onclick = async () => {
+  const text = getOutputText();
+  try { await navigator.clipboard.writeText(text); }
+  catch(_){
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove();
+  }
+  const b = $('#btnCopy'); const old = b.textContent;
+  b.textContent = '✓ Copied'; setTimeout(() => b.textContent = old, 1100);
+};
+
+if (navigator.share){
+  const bs = $('#btnShare');
+  bs.style.display = '';
+  bs.onclick = async () => {
+    try { await navigator.share({ text: getOutputText() }); } catch(_){}
+  };
+}
+
+$('#btnClear').onclick = () => {
+  if (!tokens.length) return;
+  tokens = []; sink.value = ''; render(); updatePreview(); save();
+};
+
+if (window.visualViewport){
+  const vv = window.visualViewport;
+  const fit = () => document.documentElement.style.setProperty('--vvh', vv.height + 'px');
+  vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); fit();
+}
+
+/* ══════════════════════════════════════════════════════════
+   11. BOOT
+   ══════════════════════════════════════════════════════════ */
+load();
+applySize();
+buildModeRow();
+buildChips();
+buildSwatches();
+buildKeyboard();
+syncButtons();
+render();
+updatePreview();
+
+})();
+</script>
+</body>
+</html>
